@@ -31,9 +31,9 @@ def check_if_table_exist(table_name, connection):
     cursor = connection.cursor()
     try:
         if table_name == 'Activity':
-            create_table_query = f"CREATE TABLE IF NOT EXISTS {table_name} (id_sensed INT AUTO_INCREMENT PRIMARY KEY, sensor_id INT, date TIMESTAMP, value_sensed TINYINT)" 
+            create_table_query = f"CREATE TABLE IF NOT EXISTS {table_name} (id_sensed INT AUTO_INCREMENT PRIMARY KEY, sensor_id INT NOT NULL, date TIMESTAMP, value_sensed TINYINT, FOREIGN KEY (sensor_id) REFERENCES sensors(sensor_id))" 
         else:
-            create_table_query = f"CREATE TABLE IF NOT EXISTS {table_name} (id_sensed INT AUTO_INCREMENT PRIMARY KEY, sensor_id INT, date TIMESTAMP, value_sensed FLOAT)"
+            create_table_query = f"CREATE TABLE IF NOT EXISTS {table_name} (id_sensed INT AUTO_INCREMENT PRIMARY KEY, sensor_id INT NOT NULL, date TIMESTAMP, value_sensed FLOAT, FOREIGN KEY (sensor_id) REFERENCES sensors(sensor_id)) "
         cursor.execute(create_table_query)
         connection.commit()
             
@@ -61,8 +61,6 @@ def insert_new_sensor(sensor_name, connection):
             insert_query = "INSERT INTO sensors (name) VALUES (%s)"
             cursor.execute(insert_query, (sensor_name,))
             connection.commit()
-        else:
-            print(f"Sensor '{sensor_name}' already exists.")
     except Error as e:
         print(f"Error: {e}")
 
@@ -91,6 +89,16 @@ def check_if_doc_already_open(doc_name, connection):
     try:
         select_query = "SELECT COUNT(*) FROM docs_already_open WHERE name = %s"
         cursor.execute(select_query, (doc_name,))
+        result = cursor.fetchone()
+        return result[0] > 0
+    except Error as e:
+        print(f"Error: {e}")
+        return None
+def check_if_sensor_exist(sensor_name, connection):
+    cursor = connection.cursor()
+    try:
+        select_query = "SELECT COUNT(*) FROM sensors WHERE name = %s"
+        cursor.execute(select_query, (sensor_name,))
         result = cursor.fetchone()
         return result[0] > 0
     except Error as e:
@@ -125,8 +133,9 @@ if __name__ == "__main__":
                     feature = device.split('/ ')[1]
                     if feature == 'Battery Voltage':
                         feature = 'Battery_voltage'
-                    
                     insert_new_sensor(current_device, conn)
+                    sensor_id = get_sensor_id(current_device, conn)
+                    print(sensor_id)
                     
                     # Se itera sobre cada renglon dentro de la columna con el nombre del dispositivo
                     for index, item in df[device].items():
@@ -137,7 +146,7 @@ if __name__ == "__main__":
                             fecha_obj = datetime.strptime(fecha_str, "%a, %d %b %Y %H:%M:%S")
                             fecha_sql = fecha_obj.strftime("%Y-%m-%d %H:%M:%S")
                             # Se guarda el nombre del dispositivo, la fecha y el valor de la característica
-                            device_feature_sensed.append([current_device, fecha_sql, item])
+                            device_feature_sensed.append([sensor_id, fecha_sql, item])
                     
                     # Si ya se encuentra la palabra clave en el diccionario, se añaden los valores, si no, se crea una nueva entrada
                     if feature in device_feature_sensed_per_device:
@@ -145,11 +154,10 @@ if __name__ == "__main__":
                     else:
                         device_feature_sensed_per_device[feature] = device_feature_sensed
                 insert_docs_already_open(file_name, conn)
+                
                 for measures, values in device_feature_sensed_per_device.items():
-
                     check_if_table_exist(measures, conn)
-                    sensor_id = get_sensor_id(values[0][0], conn)
+                    
                     for value in values:
-                        insert_data_to_table(measures, sensor_id, value[1], value[2], conn)
-
+                        insert_data_to_table(measures, value[0], value[1], value[2], conn)
         close_connection(conn)
