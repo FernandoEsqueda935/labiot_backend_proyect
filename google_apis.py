@@ -17,14 +17,11 @@ def create_service(client_secret_file, api_name, api_version, *scopes, prefix=''
     token_dir = 'token files'
     token_file = f'token_{API_SERVICE_NAME}_{API_VERSION}{prefix}.json'
 
-    ### Check if token dir exists first, if not, create the folder
     if not os.path.exists(os.path.join(working_dir, token_dir)):
         os.mkdir(os.path.join(working_dir, token_dir))
 
     if os.path.exists(os.path.join(working_dir, token_dir, token_file)):
         creds = Credentials.from_authorized_user_file(os.path.join(working_dir, token_dir, token_file), SCOPES)
-        # with open(os.path.join(working_dir, token_dir, token_file), 'rb') as token:
-        #   cred = pickle.load(token)
 
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
